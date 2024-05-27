@@ -2,9 +2,13 @@ name: cinnamon
 channels:
   - conda-forge
 dependencies:
-  - python
-  - cmake
   - tqdm
+  - cmake
   - numpy
+  - sympy
+  - python
+  - mpmath
   - requests
+  - protobuf
   - packaging
+  - flatbuffers

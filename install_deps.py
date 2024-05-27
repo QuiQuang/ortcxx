@@ -53,11 +53,9 @@ def cuda_float8(cu) -> bool:
 def ort(_os: str, deps: Path, args):
   """
   Build and install OnnxRuntime from source.
-  :param ver:     desired version
   :param dir:     deps directory.
   :param _os:     operation system name.
   :param args:    additional arguments.
-  :param kwds:    additional keyword arguments.
   """
   print('Install OnnxRuntime from source...')
   release = 'Release'
@@ -73,8 +71,8 @@ def ort(_os: str, deps: Path, args):
   cmd = [
     f'cd {dir} &&',
     f'bash {script} --config {release} --build_shared_lib --build_wheel',
-    f'--parallel {int(os.cpu_count() / 2)} --nvcc_threads 1',
-    f'--compile_no_warning_as_error --skip_submodule_sync'
+    f'--parallel {int(os.cpu_count())} --nvcc_threads 1',
+    f'--compile_no_warning_as_error --skip_submodule_sync --allow_running_as_root'
   ]
   # Skip tests.
   if not args.tests:
@@ -111,9 +109,47 @@ def ort(_os: str, deps: Path, args):
   os.system(' '.join(cmd))
 
 
+def cv(_os, deps: Path, args):
+  """
+  Build and install OpenCV from source.
+  :param dir:     deps directory.
+  :param _os:     operation system name.
+  :param args:    additional arguments.
+  """
+  # Download and extract source.
+  url = f'https://github.com/opencv/opencv/archive/refs/tags/{args.v}.tar.gz'
+  tar = deps.joinpath(f'opencv-{args.v}.tar.gz')
+  dir = deps.joinpath(f'opencv-{args.v}')
+  build = dir.joinpath('build')
+  download(f'Download {url}', url, tar)
+  tarextract(tar, deps)
+  build.mkdir(parents=True, exist_ok=True)
+  # Download and extract contrib source.
+  contrib_url = f'https://github.com/opencv/opencv_contrib/archive/refs/tags/{args.v}.tar.gz'
+  contrib_tar = deps.joinpath(f'opencv-contrib-{args.v}.tar.gz')
+  contrib_dir = deps.joinpath(f'opencv_contrib-{args.v}', 'modules')
+  download(f'Download {contrib_url}', contrib_url, contrib_tar)
+  tarextract(contrib_tar, deps)
+  # Build command.
+  cmd = [
+    f'cd {build} &&',
+    'cmake ..',
+      f'-DOPENCV_EXTRA_MODULES_PATH={contrib_dir}',
+      '-DBUILD_TESTS=OFF',
+      '-DBUILD_PERF_TESTS=OFF',
+      '-DBUILD_EXAMPLES=OFF',
+      '-DBUILD_opencv_apps=OFF'
+      '-DPYTHON_DEFAULT_EXECUTABLE=$(which python)',
+      '-DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX}',
+      '-DCMAKE_PREFIX_PATH=${CONDA_PREFIX}/lib/cmake'
+    f'&& make -j {os.cpu_count()} && make install'
+  ]
+  os.system(' '.join(cmd))
+
+
 parser = argparse.ArgumentParser('Cinnamon Runtime install dependencies')
 subparsers = parser.add_subparsers(help='deps')
-#
+# OnnxRuntime.
 ortparser = subparsers.add_parser('ort')
 ortparser.add_argument('--v', default='1.18.0', help='Onnxruntime version.')
 ortparser.add_argument('--gpu', default=False, help='Enable GPU.', action=argparse.BooleanOptionalAction)
@@ -121,9 +157,11 @@ ortparser.add_argument('--cuda', default='11.8', help='CUDA version.')
 ortparser.add_argument('--cudnn', default='8', help='CuDNN version.')
 ortparser.add_argument('--tests', default=False, help='Build tests.', action=argparse.BooleanOptionalAction)
 ortparser.set_defaults(func=ort)
-#
+# OpenCV.
 cvparser = subparsers.add_parser('cv')
 cvparser.add_argument('--v', default='4.9.0', help='OpenCV version.')
+cvparser.set_defaults(func=cv)
+
 
 if __name__ == '__main__':
   args = parser.parse_args()
