@@ -18,6 +18,7 @@ namespace cinrt::model
     std::shared_ptr<const char*> outputNames;
     std::unique_ptr<Ort::Session> _session;
     std::unique_ptr<Ort::SessionOptions> _sessionOptions;
+    std::string provider;
 
   public: 
     Model(
@@ -25,8 +26,9 @@ namespace cinrt::model
       bool parallel = true, 
       int graphOpLevel = 0, 
       int interThreads = 0, 
-      int intraThreads = 0
+      int intraThreads = 0,
       // std::vector<std::string>* providers = nullptr
+      int inProvider = -1
     );
     static std::shared_ptr<Model> create(
       std::shared_ptr<Ort::Env> env, 
@@ -48,8 +50,9 @@ namespace cinrt::model
       bool parallel = true,
       int graphOpLevel = 0,
       int interThreads = 0,
-      int intraThreads = 0
+      int intraThreads = 0,
       // std::vector<std::string>* providers = nullptr
+      int inProvider = -1
     );
     static std::unique_ptr<Ort::SessionOptions> getSessionOptions(
       bool parallel = true,

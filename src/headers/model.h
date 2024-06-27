@@ -27,7 +27,7 @@ public:
     const string model,
     const optional<map<string, any>> options = nullopt,
     const optional<map<string, optional<map<string, string>>>> providers = nullopt
-  )
+  );
 
   /**
    * Create session options included specified execution provider options.
