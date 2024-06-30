@@ -54,13 +54,13 @@ Model::Model(
 
     this->_session = std::make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
     Ort::MemoryInfo gpuMemoryInfo{"Cuda", OrtDeviceAllocator, 0, OrtMemTypeDefault};
-    this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, gpuMemoryInfo);
+    // this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, gpuMemoryInfo);
+    this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
   }
   else {
     this->_session = std::make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
     this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
   }
-
   Ort::AllocatedStringPtr inputName = this->_session->GetInputNameAllocated(0, *this->_allocator);
   Ort::AllocatedStringPtr outputName = this->_session->GetOutputNameAllocated(0, *this->_allocator);
   this->inputNames = std::make_shared<const char*>(inputName.release());
@@ -101,13 +101,13 @@ Model::Model(
 
     this->_session = std::make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
     Ort::MemoryInfo gpuMemoryInfo{"Cuda", OrtDeviceAllocator, 0, OrtMemTypeDefault};
-    this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, gpuMemoryInfo);
+    // this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, gpuMemoryInfo);
+    this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
   }
   else {
     this->_session = std::make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
     this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
   }
-  
   Ort::AllocatedStringPtr inputName = this->_session->GetInputNameAllocated(0, *this->_allocator);
   Ort::AllocatedStringPtr outputName = this->_session->GetOutputNameAllocated(0, *this->_allocator);
   this->inputNames = std::make_shared<const char*>(inputName.release());
@@ -170,58 +170,41 @@ std::shared_ptr<std::vector<Ort::Value>> Model::run(
   else {
     std::string deviceType = mapProviders[this->provider];
 
-    // ------------------------------------------------------------------------------------------------------
-    // ----------------------------- This code has bugs: about Cuda and PReLU -------------------------------
-    // ------------------------------------------------------------------------------------------------------
-
     Ort::MemoryInfo cpuMemoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     Ort::MemoryInfo gpuMemoryInfo{deviceType.c_str(), OrtDeviceAllocator, 0, OrtMemTypeDefault};
-    
-    const float* input_data = inputs.GetTensorData<float>();
-    Ort::Value inputOnGpu = Ort::Value::CreateTensor<float>(gpuMemoryInfo, const_cast<float*>(input_data), inputs.GetTensorTypeAndShapeInfo().GetElementCount(), inputs.GetTensorTypeAndShapeInfo().GetShape().data(), inputs.GetTensorTypeAndShapeInfo().GetShape().size());
-
 
     Ort::IoBinding bind{*this->_session};
-    bind.BindInput(*this->inputNames, inputOnGpu);
+    bind.BindInput(*this->inputNames, inputs);
     bind.BindOutput(*this->outputNames, gpuMemoryInfo);
+
 
     try {
       this->_session->Run(runOptions, bind);
-      std::vector<Ort::Value> output_tensors = bind.GetOutputValues();
+      std::vector<Ort::Value> outputTensors = bind.GetOutputValues();
 
-      std::cout << "OK" << std::endl;
-      std::vector<Ort::Value> output_tensors_on_cpu;
-      for (auto& output_tensor : output_tensors) {
-        std::vector<int64_t> output_shape = output_tensor.GetTensorTypeAndShapeInfo().GetShape();
-        Ort::Value outputOnCpu = Ort::Value::CreateTensor<float>(cpuMemoryInfo, output_tensor.GetTensorMutableData<float>(), output_tensor.GetTensorTypeAndShapeInfo().GetElementCount(), output_shape.data(), output_shape.size());
-        output_tensors_on_cpu.push_back(std::move(outputOnCpu));
+      // std::vector<Ort::Value> outputTensorsCpu;
+      // for (auto& outputTensor : outputTensors) {
+      //   std::vector<int64_t> outputShape = outputTensor.GetTensorTypeAndShapeInfo().GetShape();
+      //   Ort::Value outputOnCpu = Ort::Value::CreateTensor<float>(cpuMemoryInfo, outputTensor.GetTensorMutableData<float>(), outputTensor.GetTensorTypeAndShapeInfo().GetElementCount(), outputShape.data(), outputShape.size());
+      //   outputTensorsCpu.push_back(std::move(outputOnCpu));
+      // }
+
+      for (const auto& output : outputTensors) {
+        // Example: Print type and shape information
+        auto tensorInfo = output.GetTensorTypeAndShapeInfo();
+        std::vector<int64_t> shape = tensorInfo.GetShape();
+        std::cout << "Output tensor shape: ";
+        for (int64_t dim : shape) {
+            std::cout << dim << " ";
+        }
+        std::cout << std::endl;
       }
 
-      return std::make_shared<std::vector<Ort::Value>>(std::move(output_tensors_on_cpu));
+      return std::make_shared<std::vector<Ort::Value>>(std::move(outputTensors));
     }
     catch (Ort::Exception& exception) {
       std::cout << "Error: " << exception.what() << std::endl;
     }
-    
-
-    // ------------------------------------------------------------------------------------------------------
-    // ------------------------------- This code has bugs: segmentation fault -------------------------------
-    // ------------------------------------------------------------------------------------------------------
-
-    // Ort::MemoryInfo outputMemoryInfo{"Cuda", OrtDeviceAllocator, 0, OrtMemTypeDefault};
-
-    // Ort::IoBinding bind{*this->_session};
-    // bind.BindInput(*this->inputNames, inputs);
-    // bind.BindOutput(*this->outputNames, outputMemoryInfo);
-
-    // try {
-    //   this->_session->Run(runOptions, bind);
-    //   std::vector<Ort::Value> output_tensors = bind.GetOutputValues();
-    //   return std::make_shared<std::vector<Ort::Value>>(std::vector<Ort::Value>{std::move(output_tensor)});
-    // }
-    // catch (Ort::Exception& exception) {
-    //   std::cout << "Error: " << exception.what() << std::endl;
-    // }
   }
 
   return nullptr;

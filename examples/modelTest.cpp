@@ -8,11 +8,11 @@
 using namespace cinrt::model;
 
 Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo) {
-    // const std::array<int64_t, 4> inputShape = {1, 3, 640, 640};
-    // std::vector<float> inputValues(1 * 3 * 640 * 640, 1.0);
+    const std::array<int64_t, 4> inputShape = {1, 3, 640, 640};
+    std::vector<float> inputValues(1 * 3 * 640 * 640, 1.0);
 
-    const std::array<int64_t, 4> inputShape = {1, 9, 256, 256};
-    std::vector<float> inputValues(1 * 9 * 256 * 256, 1.0);
+    // const std::array<int64_t, 4> inputShape = {1, 9, 256, 256};
+    // std::vector<float> inputValues(1 * 9 * 256 * 256, 1.0);
 
     // const std::array<int64_t, 4> inputShape = {1, 3, 224, 224};
     // std::vector<float> inputValues(1 * 3 * 224 * 224, 1.0);
@@ -20,8 +20,8 @@ Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo) {
 }
 
 int main(){
-    std::shared_ptr<Model> model = std::make_shared<Model>("../models/test_wb.onnx");
-    // std::shared_ptr<Model> model = std::make_shared<Model>("../models/yolov7-headface-v1.onnx");
+    std::shared_ptr<Model> model = std::make_shared<Model>("../models/yolov7-headface-v1.onnx");
+    // std::shared_ptr<Model> model = std::make_shared<Model>("../models/test_wb.onnx");
     // std::shared_ptr<Model> model = std::make_shared<Model>("../models/vgg.onnx");
     
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
