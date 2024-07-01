@@ -41,6 +41,7 @@ Model::Model(
       options.device_id = 0; 
       options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchExhaustive;
       options.arena_extend_strategy = 0;
+      // options.arena_extend_strategy = 1;
       options.do_copy_in_default_stream = 0;
       this->_sessionOptions->AppendExecutionProvider_CUDA(options);
     } 
@@ -54,7 +55,6 @@ Model::Model(
 
     this->_session = std::make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
     Ort::MemoryInfo gpuMemoryInfo{"Cuda", OrtDeviceAllocator, 0, OrtMemTypeDefault};
-    // this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, gpuMemoryInfo);
     this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
   }
   else {
@@ -88,6 +88,7 @@ Model::Model(
       options.device_id = 0; 
       options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchExhaustive;
       options.arena_extend_strategy = 0;
+      // options.arena_extend_strategy = 1;
       options.do_copy_in_default_stream = 0;
       this->_sessionOptions->AppendExecutionProvider_CUDA(options);
     } 
@@ -101,7 +102,6 @@ Model::Model(
 
     this->_session = std::make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
     Ort::MemoryInfo gpuMemoryInfo{"Cuda", OrtDeviceAllocator, 0, OrtMemTypeDefault};
-    // this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, gpuMemoryInfo);
     this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
   }
   else {
@@ -180,27 +180,8 @@ std::shared_ptr<std::vector<Ort::Value>> Model::run(
 
     try {
       this->_session->Run(runOptions, bind);
-      std::vector<Ort::Value> outputTensors = bind.GetOutputValues();
-
-      // std::vector<Ort::Value> outputTensorsCpu;
-      // for (auto& outputTensor : outputTensors) {
-      //   std::vector<int64_t> outputShape = outputTensor.GetTensorTypeAndShapeInfo().GetShape();
-      //   Ort::Value outputOnCpu = Ort::Value::CreateTensor<float>(cpuMemoryInfo, outputTensor.GetTensorMutableData<float>(), outputTensor.GetTensorTypeAndShapeInfo().GetElementCount(), outputShape.data(), outputShape.size());
-      //   outputTensorsCpu.push_back(std::move(outputOnCpu));
-      // }
-
-      for (const auto& output : outputTensors) {
-        // Example: Print type and shape information
-        auto tensorInfo = output.GetTensorTypeAndShapeInfo();
-        std::vector<int64_t> shape = tensorInfo.GetShape();
-        std::cout << "Output tensor shape: ";
-        for (int64_t dim : shape) {
-            std::cout << dim << " ";
-        }
-        std::cout << std::endl;
-      }
-
-      return std::make_shared<std::vector<Ort::Value>>(std::move(outputTensors));
+      std::vector<Ort::Value> outputTensorsGpu = bind.GetOutputValues();
+      return std::make_shared<std::vector<Ort::Value>>(std::move(outputTensorsGpu));
     }
     catch (Ort::Exception& exception) {
       std::cout << "Error: " << exception.what() << std::endl;
