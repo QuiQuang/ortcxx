@@ -35,6 +35,7 @@ Model::Model(
   this->_sessionOptions = this->getSessionOptions(parallel, graphOpLevel, interThreads, intraThreads);
   
   this->provider = (inProvider == -1) ? Ort::GetAvailableProviders()[0] : mapProvidersByIndex[inProvider];
+  this->provider = "CPUExecutionProvider";
   if (this->provider != "CPUExecutionProvider") {
     if (this->provider == "CUDAExecutionProvider") {
       OrtCUDAProviderOptions options;
@@ -108,8 +109,8 @@ Model::Model(
     this->_session = std::make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
     this->_allocator = std::make_shared<Ort::Allocator>(*this->_session, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
   }
-  Ort::AllocatedStringPtr inputName = this->_session->GetInputNameAllocated(0, *this->_allocator);
-  Ort::AllocatedStringPtr outputName = this->_session->GetOutputNameAllocated(0, *this->_allocator);
+  Ort::AllocatedStringPtr inputName = this->_session->GetInputNameAllocated(1, *this->_allocator);
+  Ort::AllocatedStringPtr outputName = this->_session->GetOutputNameAllocated(1, *this->_allocator);
   this->inputNames = std::make_shared<const char*>(inputName.release());
   this->outputNames = std::make_shared<const char*>(outputName.release());
 }
