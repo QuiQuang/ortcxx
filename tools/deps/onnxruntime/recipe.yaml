@@ -20,7 +20,7 @@ build:
   script: |
     export CPATH=${CONDA_PREFIX}/include:${CPATH}
     export LD_LIBRARY_PATH=${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH}
-    build_args="--config Release --build_shared_lib --update --build --build_wheel --parallel --compile_no_warning_as_error --skip_submodule_sync --skip_tests"
+    build_args="--config Release --build_shared_lib --update --build --build_wheel --parallel 1 --compile_no_warning_as_error --skip_submodule_sync --skip_tests --nvcc_threads 1"
     cmake_args="--cmake_extra_defines CMAKE_INSTALL_PREFIX=$PREFIX"
     if [ ${{osx}} ]; then
       cmake_args = "$cmake_args CMAKE_OSX_ARCHITECTURES=$OSX_ARCH"
@@ -37,7 +37,7 @@ build:
       fi;
       if [ ${{linux}} ]; then
         ./build.sh $build_args $cmake_args
-        cd build/Linux/Release && make -j$CPU_COUNT && make install && pip install dist/*
+        cd build/Linux/Release && make -j1 && make install && pip install dist/*
       elif [ ${{win}} ]; then
         ./build.bat $build_args $cmake_args
         cd build/Windows/Release && make -j$CPU_COUNT && make install && pip install dist/*

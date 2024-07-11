@@ -20,6 +20,7 @@ namespace cinnamon::model {
             std::thread gc;
             std::mutex clockMutex;
             bool stopGCFlag = false;
+            int timeout = -1;
 
         private:
             void garbageCollector();
@@ -30,6 +31,7 @@ namespace cinnamon::model {
 
             void updateSessionClock(std::string model);
             float getSessionClock(std::string model);
+            void setTimeOut(int timeout);
             void startGC();
             void stopGC();
             

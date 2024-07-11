@@ -4,10 +4,9 @@
 #include <opencv2/opencv.hpp>
 #include <stdint.h>
 #include <fstream>
+#define INPUT_SIZE 224
 
 using namespace cinnamon::model;
-
-#define INPUT_SIZE 224
 
 std::vector<float> read_image(const char* image_path) {
     cv::Mat image = cv::imread(image_path);
@@ -36,13 +35,13 @@ void saveTensorToFile(Ort::Value tensor, const std::string& filename) {
     std::cout << "Saved tensor as PNG: " << filename << std::endl;
 }
 
-Ort::Value createMockInput_Const(Ort::MemoryInfo& memoryInfo) {
-    const std::array<int64_t, 4> inputShape = {1, 3, INPUT_SIZE, INPUT_SIZE};
-    std::vector<float> inputValues(1 * 3 * INPUT_SIZE * INPUT_SIZE, 1.0);
+Ort::Value createMockInput_Const(Ort::MemoryInfo& memoryInfo, int64_t channels, int64_t size) {
+    const std::array<int64_t, 4> inputShape = {1, channels, size, size};
+    std::vector<float> inputValues(1 * channels * size * size, 1.0);
     return Ort::Value::CreateTensor<float>(memoryInfo, inputValues.data(), inputValues.size(), inputShape.data(), inputShape.size());
 }
 
-Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo) {
+Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo, int64_t channels, int64_t size) {
     auto image_vector_d = read_image("/home/alex/Work/ortcxx/tests/sample/8D5U5524_D.png");
     auto image_vector_s = read_image("/home/alex/Work/ortcxx/tests/sample/8D5U5524_S.png");
     auto image_vector_t = read_image("/home/alex/Work/ortcxx/tests/sample/8D5U5524_T.png");
@@ -53,7 +52,18 @@ Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo) {
     concatenated_image.insert(concatenated_image.end(), image_vector_s.begin(), image_vector_s.end());
     concatenated_image.insert(concatenated_image.end(), image_vector_t.begin(), image_vector_t.end());
 
-    const std::array<int64_t, 4> inputShape = {1, 3, INPUT_SIZE, INPUT_SIZE};
+    const std::array<int64_t, 4> inputShape = {1, channels, size, size};
+    return Ort::Value::CreateTensor<float>(memoryInfo, concatenated_image.data(), concatenated_image.size(), inputShape.data(), inputShape.size());
+}
+
+Ort::Value createMockInput_Image(Ort::MemoryInfo& memoryInfo, int64_t channels, int64_t size) {
+    auto image_vector_d = read_image("../tests/samples/MyIC_Inline_28632.jpg");
+
+    std::vector<float> concatenated_image;
+    concatenated_image.reserve(image_vector_d.size());
+    concatenated_image.insert(concatenated_image.end(), image_vector_d.begin(), image_vector_d.end());
+
+    const std::array<int64_t, 4> inputShape = {1, channels, size, size};
     return Ort::Value::CreateTensor<float>(memoryInfo, concatenated_image.data(), concatenated_image.size(), inputShape.data(), inputShape.size());
 }
 
@@ -78,9 +88,9 @@ std::optional<std::map<std::string, std::optional<std::map<std::string, std::str
 };
 
 int main(){
-    std::shared_ptr<Model> model = std::make_shared<Model>("../tests/models/vgg.onnx", options, providers);
+    std::shared_ptr<Model> model = std::make_shared<Model>("../tests/model/sam.onnx", options, providers);
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    Ort::Value inputTensor = createMockInput_Const(memoryInfo);
+    Ort::Value inputTensor = createMockInput_Image(memoryInfo, 3, 224);
     
     auto info = inputTensor.GetTensorTypeAndShapeInfo();    
     std::vector<int64_t> tensorShape = info.GetShape();
@@ -106,18 +116,25 @@ int main(){
     
     try {
         std::shared_ptr<std::vector<Ort::Value>> outputTensor = model->run(inputTensor);
-        // std::shared_ptr<std::vector<Ort::Value>> temp = std::make_shared<std::vector<Ort::Value>>(outputTensor);
-        for (size_t i = 0; i < outputTensor->size(); ++i) {
-            std::string filename = "/home/alex/Work/ortcxx/tests/results/output_tensor_" + std::to_string(i) + ".jpg";
+        // for (size_t i = 0; i < outputTensor->size(); ++i) {
+        //     std::string filename = "/home/alex/Work/ortcxx/tests/results/output_tensor_" + std::to_string(i) + ".jpg";
 
-            auto shape = outputTensor->at(i).GetTensorTypeAndShapeInfo().GetShape();
-            size_t totalSize = outputTensor->at(i).GetTensorTypeAndShapeInfo().GetElementCount();
+        //     auto shape = outputTensor->at(i).GetTensorTypeAndShapeInfo().GetShape();
+        //     size_t totalSize = outputTensor->at(i).GetTensorTypeAndShapeInfo().GetElementCount();
 
-            cv::Mat image(shape[2], shape[3], CV_32FC1, outputTensor->at(i));
-            image.convertTo(image, CV_8U, 255.0); 
-            cv::imwrite(filename, image);
-            std::cout << "Saved tensor as PNG: " << filename << std::endl;
+        //     cv::Mat image(shape[2], shape[3], CV_32FC1, outputTensor->at(i));
+        //     image.convertTo(image, CV_8U, 255.0); 
+        //     cv::imwrite(filename, image);
+        //     std::cout << "Saved tensor as PNG: " << filename << std::endl;
+        // }
+
+        std::cout << "\nOutput shape:";
+        auto info = outputTensor->at(0).GetTensorTypeAndShapeInfo();    
+        std::vector<int64_t> tensorShape = info.GetShape();
+        for (int64_t dim : tensorShape) {
+            std::cout << dim << " ";
         }
+        std::cout << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Exception caught: " << e.what() << std::endl;
     }

@@ -26,7 +26,7 @@ std::optional<std::map<std::string, std::optional<std::map<std::string, std::str
 };
 
 std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers_2 = std::map<std::string, std::optional<std::map<std::string, std::string>>> {
-    {"CPUExecutionProvider", std::nullopt},
+    // {"CPUExecutionProvider", std::nullopt},
     {
         "CUDAExecutionProvider", 
         std::map<std::string, std::string> {
@@ -44,23 +44,33 @@ Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo, int64_t batchSize = 1, i
 
 int main() {
     std::shared_ptr<Ort::Env> env = std::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "test");
-    std::string modelPath1 = "../tests/models/test_wb.onnx";
-    std::string modelPath2 = "../tests/models/test_wb.onnx";
+    std::string modelPath1 = "../tests/model/wb.onnx";
+    std::string modelPath2 = "../tests/model/yolo.onnx";
     modelManager manager(env);
     Model* model1 = manager.createModel(modelPath1, options, providers_2);
     Model* model2 = manager.createModel(modelPath2, options, providers_1);
     // run model
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     Ort::Value inputTensor1 = createMockInput(memoryInfo, 1, 9, 256, 256);
-    Ort::Value inputTensor2 = createMockInput(memoryInfo, 1, 9, 256, 256);
+    Ort::Value inputTensor2 = createMockInput(memoryInfo, 1, 3, 640, 640);
     try {
         std::shared_ptr<std::vector<Ort::Value>> outputTensor = model1->run(inputTensor1);
-        float* outputData = outputTensor->at(0).GetTensorMutableData<float>();
-        std::cout << "Model1 output: " << outputData[0] << std::endl;
+        std::cout << "Model1 output: ";
+        auto info = outputTensor->at(0).GetTensorTypeAndShapeInfo();    
+        std::vector<int64_t> tensorShape = info.GetShape();
+        for (int64_t dim : tensorShape) {
+            std::cout << dim << " ";
+        }
+
 
         std::shared_ptr<std::vector<Ort::Value>> outputTensor2 = model2->run(inputTensor2);
-        float* outputData2 = outputTensor2->at(0).GetTensorMutableData<float>();
-        std::cout << "Model2 output: " << outputData2[0] << std::endl;
+        std::cout << "\nModel2 output: ";
+        auto info2 = outputTensor2->at(0).GetTensorTypeAndShapeInfo();    
+        std::vector<int64_t> tensorShape2 = info2.GetShape();
+        for (int64_t dim : tensorShape2) {
+            std::cout << dim << " ";
+        }
+        std::cout << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Exception caught: " << e.what() << std::endl;
     }

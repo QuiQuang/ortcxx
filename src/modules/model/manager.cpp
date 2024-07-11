@@ -5,6 +5,7 @@ modelManager::modelManager(std::shared_ptr<Ort::Env> env) : _env(std::move(env))
 
 modelManager::~modelManager() {
     _models.clear();
+    stopGC();
 }
 
 Model* modelManager::createModel(
@@ -62,17 +63,24 @@ void modelManager::startGC() {
 }
 
 void modelManager::stopGC() {
-    stopGCFlag = true;
+    if (stopGCFlag == false) {
+        stopGCFlag = true;
+        if (gc.joinable()) {
+            gc.join();
+        }
+    }
 }   
 
 void modelManager::garbageCollector(){
+    int delTime = (timeout >= 0) ? timeout * 1000 : 500;
     while (!stopGCFlag)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(5)); // Run every 5ms
         std::lock_guard<std::mutex> lock(clockMutex);
         auto currentTime = std::chrono::steady_clock::now();
         for (auto it = sessionClock.begin(); it != sessionClock.end();){
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - it->second).count() > 500){
+            auto lastAccessTime = it->second;
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastAccessTime).count() > delTime) {   
                 delModel(it->first);
                 it = sessionClock.erase(it);
             } else {
@@ -80,4 +88,30 @@ void modelManager::garbageCollector(){
             }
         }
     } 
+}
+
+void modelManager::setTimeOut(int timeout) {
+    this->timeout = timeout;
+    if (timeout == -1) {
+        if (gc.joinable())
+            stopGC();
+    } else if (timeout == 0) {
+        std::vector<std::string> modelsToDelete;
+        for (auto& model : _models) {
+            if (model.second->isRunnedModel()) {
+                delModel(model.first);
+                modelsToDelete.push_back(model.first);
+            }
+        }
+
+        std::lock_guard<std::mutex> lock(clockMutex);
+        for (auto& model : modelsToDelete) {
+            sessionClock.erase(model);
+        }
+
+        if (gc.joinable())
+            stopGC();
+    } else if (timeout > 0) {
+        startGC();
+    }
 }

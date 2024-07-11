@@ -52,13 +52,13 @@ int main() {
 
     // Start garbage collection and let it run for a short while
     // manager.startGC();
-    int Time = 5;
+    int Time = 4;
     std::this_thread::sleep_for(std::chrono::seconds(Time)); // simulate some time passing
     std::cout << "After " << Time << " seconds, start garbage collection" << std::endl;
 
     // Stop garbage collection and join thread
-    manager.stopGC();
     std::cout << "Garbage collector stopped." << std::endl;
 
+    manager.stopGC();
     return 0;
 }

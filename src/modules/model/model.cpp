@@ -171,6 +171,7 @@ shared_ptr<vector<Ort::Value>> Model::run(
   if (this->provider == "CPUExecutionProvider") {
     try {   
       vector<Ort::Value> output_vector = this->_session->Run(runOptions, &*inputNames, &inputs, 1, &*outputNames, 1);
+      this->isRunned = !this->isRunned;
       return make_shared<vector<Ort::Value>>(move(output_vector));
     }
     catch (Ort::Exception& exception) {
@@ -188,6 +189,7 @@ shared_ptr<vector<Ort::Value>> Model::run(
     try {
       this->_session->Run(runOptions, ioBinding);
       vector<Ort::Value> outputTensor = ioBinding.GetOutputValues();
+      this->isRunned = !this->isRunned;
       return make_shared<vector<Ort::Value>>(move(outputTensor));
     }
     catch (Ort::Exception& exception) {

@@ -26,6 +26,7 @@ namespace cinnamon::model
                 {"CUDAExecutionProvider", "Cuda"},
                 {"OpenVINOExecutionProvider", "OpenVINO"}
             };
+            bool isRunned = false;
 
         private:
             static OrtCUDAProviderOptionsV2* getCUDAProviderOptions(
@@ -41,6 +42,10 @@ namespace cinnamon::model
                 const std::optional<std::map<std::string, std::any>> options = std::nullopt,
                 const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers = std::nullopt
             );
+
+            bool isRunnedModel() {
+                return this->isRunned;
+            }
 
         protected:
             Model(

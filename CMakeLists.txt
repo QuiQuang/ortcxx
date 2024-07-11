@@ -49,5 +49,5 @@ target_link_libraries(testModel cinnamon)
 add_executable(testManager tests/testManager.cpp)
 target_link_libraries(testManager cinnamon)
 
-# add_executable(testService tests/testService.cpp)
-# target_link_libraries(testService cinnamon)
+add_executable(testService tests/testService.cpp)
+target_link_libraries(testService cinnamon)
