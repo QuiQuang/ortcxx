@@ -4,7 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <stdint.h>
 #include <fstream>
-#define INPUT_SIZE 224
+#define INPUT_SIZE 384
 
 using namespace cinnamon::model;
 
@@ -35,9 +35,27 @@ void saveTensorToFile(Ort::Value tensor, const std::string& filename) {
     std::cout << "Saved tensor as PNG: " << filename << std::endl;
 }
 
-Ort::Value createMockInput_Const(Ort::MemoryInfo& memoryInfo, int64_t channels, int64_t size) {
+Ort::Value createMockInput_Const_1D(Ort::MemoryInfo& memoryInfo,int64_t size) {
+    const std::array<int64_t, 1> inputShape = {size};
+    std::vector<float> inputValues(size, 10.0);
+    return Ort::Value::CreateTensor<float>(memoryInfo, inputValues.data(), inputValues.size(), inputShape.data(), inputShape.size());
+}
+
+Ort::Value createMockInput_Const_2D(Ort::MemoryInfo& memoryInfo, int64_t size) {
+    const std::array<int64_t, 2> inputShape = {1, size};
+    std::vector<float> inputValues(1 * size, 10.0);
+    return Ort::Value::CreateTensor<float>(memoryInfo, inputValues.data(), inputValues.size(), inputShape.data(), inputShape.size());
+}
+
+Ort::Value createMockInput_Const_3D(Ort::MemoryInfo& memoryInfo, int64_t channels, int64_t size) {
+    const std::array<int64_t, 3> inputShape = {1, channels, size};
+    std::vector<float> inputValues(1 * channels * size, 10.0);
+    return Ort::Value::CreateTensor<float>(memoryInfo, inputValues.data(), inputValues.size(), inputShape.data(), inputShape.size());
+}
+
+Ort::Value createMockInput_Const_4D(Ort::MemoryInfo& memoryInfo, int64_t channels, int64_t size) {
     const std::array<int64_t, 4> inputShape = {1, channels, size, size};
-    std::vector<float> inputValues(1 * channels * size * size, 1.0);
+    std::vector<float> inputValues(1 * channels * size * size, 10.0);
     return Ort::Value::CreateTensor<float>(memoryInfo, inputValues.data(), inputValues.size(), inputShape.data(), inputShape.size());
 }
 
@@ -75,7 +93,7 @@ std::optional<std::map<std::string, std::any>> options = std::map<std::string, s
 };
 
 std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers = std::map<std::string, std::optional<std::map<std::string, std::string>>> {
-    // {"CPUExecutionProvider", std::nullopt},
+    {"CPUExecutionProvider", std::nullopt},
     {
         "CUDAExecutionProvider", 
         std::map<std::string, std::string> {
@@ -90,51 +108,31 @@ std::optional<std::map<std::string, std::optional<std::map<std::string, std::str
 int main(){
     std::shared_ptr<Model> model = std::make_shared<Model>("../tests/model/sam.onnx", options, providers);
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    Ort::Value inputTensor = createMockInput_Image(memoryInfo, 3, 224);
-    
-    auto info = inputTensor.GetTensorTypeAndShapeInfo();    
-    std::vector<int64_t> tensorShape = info.GetShape();
 
-    std::cout << "Input shape data: ";
-    for (int64_t dim : tensorShape) {
-        std::cout << dim << " ";
-    }
+    std::vector<Ort::Value> inputTensors;
+    inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 256, 64)));   // image_embedding
+    inputTensors.push_back(std::move(createMockInput_Const_3D(memoryInfo, 1, 2)));      // point_coords
+    inputTensors.push_back(std::move(createMockInput_Const_2D(memoryInfo, 1)));         // point_labels
+    inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 1, 256)));    // mask_input
+    inputTensors.push_back(std::move(createMockInput_Const_1D(memoryInfo, 1)));         // has_mask_input
+    inputTensors.push_back(std::move(createMockInput_Const_1D(memoryInfo, 2)));         // orig_im_size
 
-    // std::cout << std::endl << inputTensor.IsTensor() << std::endl; is tensor
-    // auto test = inputTensor.GetTensorTypeAndShapeInfo();
-    // std::cout << std::endl << test.GetElementType() << std::endl;
-    // std::cout << std::endl << test.GetShape().size() << std::endl;
-    // // std::cout << "Tensor Values:" << std::endl;
-    // // // std::cout << tensorData[0] << std::endl;
+    std::cout << "Input has: " << inputTensors.size() << " elements" << std::endl;
 
-    // std::cout << "hi";
-    // const float* tensorData = inputTensor.GetTensorData<float>();
-    // std::cout << "Data: ";
-    // for (size_t i = 0; i < tensorShape.back(); i++) {
-    //     std::cout << tensorData[i] << std::endl;
-    // }
-    
     try {
-        std::shared_ptr<std::vector<Ort::Value>> outputTensor = model->run(inputTensor);
-        // for (size_t i = 0; i < outputTensor->size(); ++i) {
-        //     std::string filename = "/home/alex/Work/ortcxx/tests/results/output_tensor_" + std::to_string(i) + ".jpg";
+        std::shared_ptr<std::vector<Ort::Value>> outputTensors = model->run(inputTensors);
 
-        //     auto shape = outputTensor->at(i).GetTensorTypeAndShapeInfo().GetShape();
-        //     size_t totalSize = outputTensor->at(i).GetTensorTypeAndShapeInfo().GetElementCount();
-
-        //     cv::Mat image(shape[2], shape[3], CV_32FC1, outputTensor->at(i));
-        //     image.convertTo(image, CV_8U, 255.0); 
-        //     cv::imwrite(filename, image);
-        //     std::cout << "Saved tensor as PNG: " << filename << std::endl;
-        // }
-
-        std::cout << "\nOutput shape:";
-        auto info = outputTensor->at(0).GetTensorTypeAndShapeInfo();    
-        std::vector<int64_t> tensorShape = info.GetShape();
-        for (int64_t dim : tensorShape) {
-            std::cout << dim << " ";
+        std::cout << "Output has : " << outputTensors->size() << " elements\n";
+        for (size_t i = 0; i < outputTensors->size(); ++i) {
+            std::cout << "Head " << i << ": ";
+            auto info = outputTensors->at(i).GetTensorTypeAndShapeInfo();    
+            std::vector<int64_t> tensorShape = info.GetShape();
+            for (int64_t dim : tensorShape) {
+                std::cout << dim << " ";
+            }
+            std::cout << std::endl;
         }
-        std::cout << std::endl;
+
     } catch (const std::exception& e) {
         std::cerr << "Exception caught: " << e.what() << std::endl;
     }

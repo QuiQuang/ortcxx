@@ -35,30 +35,33 @@ Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo, int64_t batchSize = 1, i
 
 int main() {
     std::shared_ptr<Ort::Env> env = std::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "test");
-    // std::shared_ptr<Ort::Allocator> allocator = std::make_shared<Ort::AllocatorWithDefaultOptions>();
 
     modelManager manager(env);
 
-    // Create and test model
     std::string modelPath1 = "../tests/model/wb.onnx";
     std::string modelPath2 = "../tests/model/yolo.onnx";
     Model* model = manager.createModel(modelPath1, options, providers);
     Model* model2 = manager.createModel(modelPath2, options, providers);
     
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    Ort::Value inputTensor1 = createMockInput(memoryInfo , 1, 9, 256, 256);
-    // Ort::Value inputTensor2 = createMockInput(memoryInfo, 1, 3, 640, 640);
+    std::vector<Ort::Value> inputTensors1;
+    inputTensors1.push_back(createMockInput(memoryInfo , 1, 9, 256, 256));
+    // Ort::Value inputTensors2;
+    // inputTensors2.push_back(createMockInput(memoryInfo, 1, 3, 640, 640))
     manager.setTimeOut(3);
 
     try {
-        std::shared_ptr<std::vector<Ort::Value>> outputTensor1 = model->run(inputTensor1);
-        std::cout << "Model output: ";
-        auto info = outputTensor1->at(0).GetTensorTypeAndShapeInfo();    
-        std::vector<int64_t> tensorShape = info.GetShape();
-        for (int64_t dim : tensorShape) {
-            std::cout << dim << " ";
+        std::shared_ptr<std::vector<Ort::Value>> outputTensors1 = model->run(inputTensors1);
+        std::cout << "Output model 1 has : " << outputTensors1->size() << " elements\n";
+        for (size_t i = 0; i < outputTensors1->size(); ++i) {
+            std::cout << "Head " << i << ": ";
+            auto info = outputTensors1->at(i).GetTensorTypeAndShapeInfo();    
+            std::vector<int64_t> tensorShape = info.GetShape();
+            for (int64_t dim : tensorShape) {
+                std::cout << dim << " ";
+            }
+            std::cout << std::endl;
         }
-        std::cout << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Exception caught: " << e.what() << std::endl;
     }
