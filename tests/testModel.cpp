@@ -93,29 +93,31 @@ std::optional<std::map<std::string, std::any>> options = std::map<std::string, s
 };
 
 std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers = std::map<std::string, std::optional<std::map<std::string, std::string>>> {
-    {"CPUExecutionProvider", std::nullopt},
-    {
-        "CUDAExecutionProvider", 
-        std::map<std::string, std::string> {
-            {"device_id", "0"},
-            {"gpu_mem_limit", "2147483648"},
-            {"arena_extend_strategy", "kSameAsRequested"}
-        }
-    },
+//    {"CPUExecutionProvider", std::nullopt},
+//    {
+//        "CUDAExecutionProvider", 
+//        std::map<std::string, std::string> {
+//            {"device_id", "0"},
+//            {"gpu_mem_limit", "2147483648"},
+//            {"arena_extend_strategy", "kSameAsRequested"}
+//        }
+//    },
     {"OpenVINOExecutionProvider", std::nullopt}
 };
 
 int main(){
-    std::shared_ptr<Model> model = std::make_shared<Model>("../tests/model/sam.onnx", options, providers);
+    // std::shared_ptr<Model> model = std::make_shared<Model>("../tests/model/sam.onnx", options, providers);
+    std::shared_ptr<Model> model = std::make_shared<Model>("../tests/model/wb_last.onnx", options, providers);
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 
     std::vector<Ort::Value> inputTensors;
-    inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 256, 64)));   // image_embedding
-    inputTensors.push_back(std::move(createMockInput_Const_3D(memoryInfo, 1, 2)));      // point_coords
-    inputTensors.push_back(std::move(createMockInput_Const_2D(memoryInfo, 1)));         // point_labels
-    inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 1, 256)));    // mask_input
-    inputTensors.push_back(std::move(createMockInput_Const_1D(memoryInfo, 1)));         // has_mask_input
-    inputTensors.push_back(std::move(createMockInput_Const_1D(memoryInfo, 2)));         // orig_im_size
+    inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 9, 256)));
+    // inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 256, 64)));   // image_embedding
+    // inputTensors.push_back(std::move(createMockInput_Const_3D(memoryInfo, 1, 2)));      // point_coords
+    // inputTensors.push_back(std::move(createMockInput_Const_2D(memoryInfo, 1)));         // point_labels
+    // inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 1, 256)));    // mask_input
+    // inputTensors.push_back(std::move(createMockInput_Const_1D(memoryInfo, 1)));         // has_mask_input
+    // inputTensors.push_back(std::move(createMockInput_Const_1D(memoryInfo, 2)));         // orig_im_size
 
     std::cout << "Input has: " << inputTensors.size() << " elements" << std::endl;
 

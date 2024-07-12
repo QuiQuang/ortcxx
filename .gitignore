@@ -13,6 +13,4 @@ build
 models
 .vscode
 output
-tests/results
-tests/samples
 tests/model
