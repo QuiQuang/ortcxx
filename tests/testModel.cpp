@@ -85,33 +85,28 @@ Ort::Value createMockInput_Image(Ort::MemoryInfo& memoryInfo, int64_t channels, 
     return Ort::Value::CreateTensor<float>(memoryInfo, concatenated_image.data(), concatenated_image.size(), inputShape.data(), inputShape.size());
 }
 
-std::optional<std::map<std::string, std::any>> options = std::map<std::string, std::any> {
-    {"parallel", true},
-    {"inter_ops_threads", 0},
-    {"intra_ops_threads", 0},
-    {"graph_optimization_level", 0}
-};
-
-std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers = std::map<std::string, std::optional<std::map<std::string, std::string>>> {
-//    {"CPUExecutionProvider", std::nullopt},
-//    {
-//        "CUDAExecutionProvider", 
-//        std::map<std::string, std::string> {
-//            {"device_id", "0"},
-//            {"gpu_mem_limit", "2147483648"},
-//            {"arena_extend_strategy", "kSameAsRequested"}
-//        }
-//    },
-    {"OpenVINOExecutionProvider", std::nullopt}
-};
 
 int main(){
-    // std::shared_ptr<Model> model = std::make_shared<Model>("../tests/model/sam.onnx", options, providers);
-    std::shared_ptr<Model> model = std::make_shared<Model>("../tests/model/wb_last.onnx", options, providers);
-    Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    std::map<std::string, modelConfig> config = readConfig("/home/alex/Work/ortcxx_last/models_repo");
+    
+    std::string modelName = "yolov9-c";  // Name model
+    std::shared_ptr<Model> model;
+    auto it = config.find(modelName);
+    if (it != config.end()) {
+        const modelConfig& config = it->second;
+        
+        model = std::make_shared<Model>(
+            config.pathModel,
+            config.options,
+            config.providers,
+            config.encrypted_file
+        );
+    }
 
+    Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     std::vector<Ort::Value> inputTensors;
-    inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 9, 256)));
+    inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 3, 640)));
+
     // inputTensors.push_back(std::move(createMockInput_Const_4D(memoryInfo, 256, 64)));   // image_embedding
     // inputTensors.push_back(std::move(createMockInput_Const_3D(memoryInfo, 1, 2)));      // point_coords
     // inputTensors.push_back(std::move(createMockInput_Const_2D(memoryInfo, 1)));         // point_labels

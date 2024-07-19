@@ -4,6 +4,8 @@ using namespace std;
 using namespace Ort;
 using namespace cinnamon::model;
 
+#define encryptedKey "3!4%@Us287uEUo86^QSA%L"
+
 deviceType findFirstMatch(
   const optional<map<string, optional<map<string, string>>>> providers
 ) {
@@ -139,12 +141,40 @@ SessionOptions Model::getSessionOptions(
 Model::Model(
   string model,
   const optional<map<string, any>> options,
-  const optional<map<string, optional<map<string, string>>>> providers
+  const optional<map<string, optional<map<string, string>>>> providers,
+  bool isEncrypted
 ) {
   this->_env = make_shared<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "test");
   this->_sessionOptions = std::make_unique<Ort::SessionOptions>(Model::getSessionOptions(options, providers));
   this->device = findFirstMatch(providers);
-  this->_session = make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
+  
+  if (isEncrypted) {
+    ifstream inputFile(model, ios::binary);
+    if (!inputFile.is_open()) {
+        cerr << "Error reading file." << endl;
+    }
+
+    // Read the file content
+    inputFile.seekg(0, inputFile.end);
+    size_t fileSize = inputFile.tellg();
+    inputFile.seekg(0, inputFile.beg);
+    char *fileContent = new char[fileSize];
+    inputFile.read(fileContent, fileSize);
+    inputFile.close();
+
+    // Decrypt
+    size_t keyIndex = 0;
+    auto key = AY_OBFUSCATE(encryptedKey);
+    size_t keyLength = strlen(key);
+    for (size_t i = 0; i < fileSize; i++) {
+        fileContent[i] = fileContent[i] ^ key[keyIndex];
+        keyIndex = (keyIndex + 1) % keyLength;
+    }
+    this->_session = make_unique<Ort::Session>(*this->_env, fileContent, fileSize, *this->_sessionOptions);
+  }
+  else
+    this->_session = make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
+  
   this->_allocator = make_shared<Ort::Allocator>(*this->_session, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
   for (size_t i = 0; i < this->_session->GetInputCount(); ++i) {
     Ort::AllocatedStringPtr inputName = this->_session->GetInputNameAllocated(i, *this->_allocator);
@@ -162,14 +192,41 @@ Model::Model(
   shared_ptr<Ort::Env> env,
   shared_ptr<Ort::Allocator> allocator,
   const optional<map<string, any>> options,
-  const optional<map<string, optional<map<string, string>>>> providers
+  const optional<map<string, optional<map<string, string>>>> providers,
+  bool isEncrypted
 ) {
   this->_env = env;
   this->_allocator = allocator;
-  this->_sessionOptions = std::make_unique<Ort::SessionOptions>(Model::getSessionOptions(options, providers));
   this->device = findFirstMatch(providers);
-  this->_session = make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
+  this->_sessionOptions = std::make_unique<Ort::SessionOptions>(Model::getSessionOptions(options, providers));
 
+  if (isEncrypted) {
+    ifstream inputFile(model, ios::binary);
+    if (!inputFile.is_open()) {
+        cerr << "Error reading file." << endl;
+    }
+
+    // Read the file content
+    inputFile.seekg(0, inputFile.end);
+    size_t fileSize = inputFile.tellg();
+    inputFile.seekg(0, inputFile.beg);
+    char *fileContent = new char[fileSize];
+    inputFile.read(fileContent, fileSize);
+    inputFile.close();
+
+    // Decrypt
+    size_t keyIndex = 0;
+    auto key = AY_OBFUSCATE(encryptedKey);
+    size_t keyLength = strlen(key);
+    for (size_t i = 0; i < fileSize; i++) {
+        fileContent[i] = fileContent[i] ^ key[keyIndex];
+        keyIndex = (keyIndex + 1) % keyLength;
+    }
+    this->_session = make_unique<Ort::Session>(*this->_env, fileContent, fileSize, *this->_sessionOptions);
+  }
+  else
+    this->_session = make_unique<Ort::Session>(*this->_env, model.c_str(), *this->_sessionOptions);
+  
   for (size_t i = 0; i < this->_session->GetInputCount(); ++i) {
     Ort::AllocatedStringPtr inputName = this->_session->GetInputNameAllocated(i, *this->_allocator);
     this->inputNames.push_back(inputName.release());
@@ -188,7 +245,7 @@ shared_ptr<vector<Ort::Value>> Model::run(
 ) {
   if (inputs.size() != inputNames.size()) {
     throw runtime_error("Number of input values does not match the number of input names.");
-  }
+  } 
 
   if (outputHead != nullptr) {
     bool found = false;
@@ -255,4 +312,66 @@ future<shared_ptr<vector<Ort::Value>>> Model::runAsync(
   if (this->_session == nullptr)
     throw runtime_error("Session is not initialized");
   return async(launch::async, &Model::run, this, cref(inputs), outputHead, cref(runOptions));
+}
+
+std::map<std::string, modelConfig> readConfig(const std::string& modelsDir) {
+  std::map<std::string, modelConfig> modelConfigs;
+  try {
+    for (const auto& entry : std::filesystem::directory_iterator(modelsDir)) {
+        if (entry.is_directory()) {
+          std::string modelName = entry.path().filename().string();
+          std::string yamlPath = (entry.path() / (modelName + ".yaml")).string();
+            
+          // Read model name
+          if (!std::filesystem::exists(yamlPath)) {
+            std::cerr << "Config file " << yamlPath << " does not exist." << std::endl;
+            continue;
+          }
+
+          // Read yaml file
+          YAML::Node config = YAML::LoadFile(yamlPath);
+
+          // Options
+          std::map<std::string, std::any> options;
+          if (config["options"]) {
+            options["parallel"] = config["options"]["parallel"].as<bool>();
+            options["inter_ops_threads"] = config["options"]["inter_ops_threads"].as<int>();
+            options["intra_ops_threads"] = config["options"]["intra_ops_threads"].as<int>();
+            options["graph_optimization_level"] = config["options"]["graph_optimization_level"].as<int>();
+          }
+
+          // Providers
+          std::map<std::string, std::optional<std::map<std::string, std::string>>> providers;
+          if (config["providers"]) {
+            for (const auto& provider : config["providers"]) {
+              std::string providerName = provider.first.as<std::string>();
+            if (provider.second.IsMap()) {
+              std::map<std::string, std::string> providerOptions;
+              for (const auto& option : provider.second) 
+              providerOptions[option.first.as<std::string>()] = option.second.as<std::string>();
+              providers[providerName] = providerOptions;
+            } else
+              providers[providerName] = std::nullopt;
+            }
+          }
+
+          // File settings
+          bool encryptedFile = false;
+          if (config["file_settings"]) {
+            encryptedFile = config["file_settings"]["encrypted_file"].as<bool>();
+          }
+          std::string modelFile;
+          if (encryptedFile) 
+            modelFile = (entry.path() / (modelName + ".enc")).string();
+          else 
+            modelFile = (entry.path() / (modelName + ".onnx")).string();
+
+          // Save model config
+          modelConfigs[modelName] = modelConfig{options, providers, encryptedFile, modelFile};
+        }
+      }
+  } catch (const std::exception& e) {
+      std::cerr << "Error reading model configs: " << e.what() << std::endl;
+  }
+  return modelConfigs;
 }

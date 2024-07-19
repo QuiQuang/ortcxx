@@ -7,35 +7,6 @@
 
 using namespace cinnamon::model;
 
-std::optional<std::map<std::string, std::any>> options = std::map<std::string, std::any> {
-    {"parallel", true},
-    {"inter_ops_threads", 0},
-    {"intra_ops_threads", 0},
-    {"graph_optimization_level", 0}
-};
-
-std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers_1 = std::map<std::string, std::optional<std::map<std::string, std::string>>> {
-    {"CPUExecutionProvider", std::nullopt},
-    {
-        "CUDAExecutionProvider", 
-        std::map<std::string, std::string> {
-            {"device_id", "0"}
-        }
-    },
-    {"OpenVINOExecutionProvider", std::nullopt}
-};
-
-std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers_2 = std::map<std::string, std::optional<std::map<std::string, std::string>>> {
-    // {"CPUExecutionProvider", std::nullopt},
-    {
-        "CUDAExecutionProvider", 
-        std::map<std::string, std::string> {
-            {"device_id", "0"}
-        }
-    },
-    {"OpenVINOExecutionProvider", std::nullopt}
-}; 
-
 Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo, int64_t batchSize = 1, int64_t channels = 9, int64_t height = 256, int64_t width = 256) {
     const std::array<int64_t, 4> inputShape = {batchSize, channels, height, width};
     std::vector<float> inputValues(batchSize * channels * height * width, 1.0f);
@@ -43,12 +14,36 @@ Ort::Value createMockInput(Ort::MemoryInfo& memoryInfo, int64_t batchSize = 1, i
 }   
 
 int main() {
+    std::map<std::string, modelConfig> config = readConfig("/home/alex/Work/ortcxx_last/models_repo");
     std::shared_ptr<Ort::Env> env = std::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "test");
-    std::string modelPath1 = "../tests/model/wb_last.onnx";
-    std::string modelPath2 = "../tests/model/yolo.onnx";
+    
     modelManager manager(env);
-    Model* model1 = manager.createModel(modelPath1, options, providers_2);
-    Model* model2 = manager.createModel(modelPath2, options, providers_1);
+
+    Model* model1;
+    auto it = config.find("wb_last");
+    if (it != config.end()) {
+        const modelConfig& config = it->second;
+        
+        model1 = manager.createModel(
+            config.pathModel,
+            config.options,
+            config.providers,
+            config.encrypted_file
+        );
+    }
+
+    Model* model2;
+    it = config.find("yolov9-c");
+    if (it != config.end()) {
+        const modelConfig& config = it->second;
+        
+        model2 = manager.createModel(
+            config.pathModel,
+            config.options,
+            config.providers,
+            config.encrypted_file
+        );
+    }
 
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     std::vector<Ort::Value> inputTensors1;
@@ -72,7 +67,6 @@ int main() {
             }
             std::cout << std::endl;
         }
-
 
         std::shared_ptr<std::vector<Ort::Value>> outputTensors2 = model2->run(inputTensors2);
         std::cout << "Output model 2 has : " << outputTensors2->size() << " elements\n";

@@ -10,11 +10,24 @@
 #include <optional>
 #include <iostream>
 #include <onnxruntime_cxx_api.h>
+#include <fstream>
+#include <yaml-cpp/yaml.h>
+#include <filesystem>
+#include "obfuscate.h"
+
+struct modelConfig {
+    std::map<std::string, std::any> options;
+    std::map<std::string, std::optional<std::map<std::string, std::string>>> providers;
+    bool encrypted_file;
+    std::string pathModel;
+};
 
 struct deviceType {
     std::string provider;
     std::string processor;     // 0: CPU, 1: GPU, 2: NPU
 };
+
+std::map<std::string, modelConfig> readConfig(const std::string& modelsDir);
 
 namespace cinnamon::model
 {
@@ -58,15 +71,17 @@ namespace cinnamon::model
                 std::shared_ptr<Ort::Env> env, 
                 std::shared_ptr<Ort::Allocator> allocator, 
                 const std::optional<std::map<std::string, std::any>> options,
-                const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers
+                const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers,
+                bool isEncrypted
             ) {
-                return std::shared_ptr<Model>(new Model(model, env, allocator, options, providers));
+                return std::shared_ptr<Model>(new Model(model, env, allocator, options, providers, isEncrypted));
             }
 
             Model(
                 std::string model,
                 const std::optional<std::map<std::string, std::any>> options,
-                const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers
+                const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers,
+                bool isEncrypted
             );
 
             std::shared_ptr<std::vector<Ort::Value>> run(
@@ -87,7 +102,8 @@ namespace cinnamon::model
                 std::shared_ptr<Ort::Env> env,
                 std::shared_ptr<Ort::Allocator> allocator,
                 const std::optional<std::map<std::string, std::any>> options,
-                const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers
+                const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers,
+                bool isEncrypted
             );
         };
 };

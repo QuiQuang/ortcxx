@@ -1,11 +1,8 @@
 #ifndef __CINNAMON_MANAGER_H__
 #define __CINNAMON_MANAGER_H__
 
-#include <string>
-#include <map>
 #include <future>
 #include <onnxruntime_cxx_api.h>
-#include <iostream>
 #include <thread>
 #include <chrono>
 #include "model.h"
@@ -38,7 +35,8 @@ namespace cinnamon::model {
             Model* createModel(
                 std::string model,
                 const std::optional<std::map<std::string, std::any>> options,
-                const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers
+                const std::optional<std::map<std::string, std::optional<std::map<std::string, std::string>>>> providers,
+                bool isEncrypted
             );
             
             Model* getModel(std::string model);        

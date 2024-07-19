@@ -11,6 +11,9 @@ find_package(OpenCV REQUIRED)
 find_package(CURL REQUIRED)
 find_package(TIFF REQUIRED)
 find_package(GDAL REQUIRED)
+find_package(yaml-cpp REQUIRED)
+
+# find_package(pybind11 CONFIG REQUIRED)
 
 # -----------------------------------------------------------------------------
 # Build Cinnamon Runtime library.
@@ -28,7 +31,7 @@ file(GLOB LIB_SRC_FILES
 add_library(${LIB_NAME} SHARED ${LIB_HEADERS} ${LIB_PRIV_HEADERS} ${LIB_SRC_FILES})
 # Link dependencies.
 target_link_libraries(${LIB_NAME} onnxruntime)
-target_link_libraries (${LIB_NAME} ${OpenCV_LIBS} ${GDAL_LIBRARY} ${CURL_LIBRARIES} ${TIFF_LIBRARIES})
+target_link_libraries (${LIB_NAME} ${OpenCV_LIBS} ${GDAL_LIBRARY} ${CURL_LIBRARIES} ${TIFF_LIBRARIES} yaml-cpp)
 # When library is exposed, use #include <cinnamon/abc.h>
 target_include_directories(${LIB_NAME} PUBLIC $<BUILD_INTERFACE:${LIB_HEADERS}> $<INSTALL_INTERFACE:include>)
 # Internally, use #include "abc.h"
@@ -36,6 +39,11 @@ target_include_directories(${LIB_NAME} PRIVATE $<BUILD_INTERFACE:${LIB_HEADERS}/
 target_include_directories(${LIB_NAME} PRIVATE $<BUILD_INTERFACE:${LIB_PRIV_HEADERS}> $<INSTALL_INTERFACE:include/${LIB_NAME}>)
 # Set library properties.
 set_target_properties(${LIB_NAME} PROPERTIES LINKER_LANGUAGE CXX)
+# -----------------------------------------------------------------------------
+# Build the Python bindings.
+# -----------------------------------------------------------------------------
+# pybind11_add_module(cinnamonPy src/bindings/pybind11.cpp)
+# target_link_libraries(cinnamonPy PRIVATE ${LIB_NAME} pybind11::module)
 
 # -----------------------------------------------------------------------------
 # Buil executable and tests.

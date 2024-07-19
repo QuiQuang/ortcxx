@@ -38,10 +38,10 @@ int main() {
 
     modelManager manager(env);
 
-    std::string modelPath1 = "../tests/model/wb.onnx";
-    std::string modelPath2 = "../tests/model/yolo.onnx";
-    Model* model = manager.createModel(modelPath1, options, providers);
-    Model* model2 = manager.createModel(modelPath2, options, providers);
+    std::string modelPath1 = "/home/alex/Work/ortcxx_last/models/wb_last.onnx";
+    std::string modelPath2 = "/home/alex/Work/ortcxx_last/models/yolo.onnx";
+    Model* model = manager.createModel(modelPath1, options, providers, false);
+    Model* model2 = manager.createModel(modelPath2, options, providers, false);
     
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     std::vector<Ort::Value> inputTensors1;
